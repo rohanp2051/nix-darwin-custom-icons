@@ -32,6 +32,8 @@ in
       system.activationScripts.extraActivation.text = ''
                 echo "applying custom icons..."
 
+                failed_apps=()
+
                 set_icon() {
                   local icon_path="$1"
                   local dest_path="$2"
@@ -62,8 +64,7 @@ in
 
                   if [ $exit_code -ne 0 ]; then
                     echo "  ✗ Failed: $dest_path"
-                    echo "    Error: $result"
-                    echo "    Hint: Try running 'sudo xattr -dr com.apple.macl \"$dest_path\"'"
+                    failed_apps+=("$dest_path")
                     return 0
                   fi
 
@@ -84,6 +85,17 @@ in
                   killall Dock 2>/dev/null || true
                   echo "  ✓ Icon cache cleared"
                 ''}
+
+                if [ ''${#failed_apps[@]} -gt 0 ]; then
+                  echo ""
+                  echo "⚠ The following apps require an overlay to change their icons:"
+                  for app in "''${failed_apps[@]}"; do
+                    echo "  - $app"
+                  done
+                  echo ""
+                  echo "These apps have com.apple.macl protection. Use a nixpkgs overlay to"
+                  echo "replace the icon at build time instead of runtime."
+                fi
 
                 echo "custom icons applied"
       '';
