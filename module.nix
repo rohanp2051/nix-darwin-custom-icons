@@ -36,19 +36,11 @@ in
                   local icon_path="$1"
                   local dest_path="$2"
 
-                  # Check if destination exists
                   if [ ! -e "$dest_path" ]; then
                     echo "  ⚠ Skipping: $dest_path (not found)"
-                    return 1
+                    return 0
                   fi
 
-                  # Check if destination is writable
-                  if [ ! -w "$dest_path" ]; then
-                    echo "  ✗ Failed: $dest_path (permission denied - try running with sudo or check SIP)"
-                    return 1
-                  fi
-
-                  # Attempt to set the icon
                   local result
                   result=$(osascript <<EOF 2>&1
                     use framework "Cocoa"
@@ -71,7 +63,8 @@ in
                   if [ $exit_code -ne 0 ]; then
                     echo "  ✗ Failed: $dest_path"
                     echo "    Error: $result"
-                    return 1
+                    echo "    Hint: Try running 'sudo xattr -dr com.apple.macl \"$dest_path\"'"
+                    return 0
                   fi
 
                   echo "  ✓ Set icon: $dest_path"
@@ -80,7 +73,7 @@ in
 
                 ${builtins.concatStringsSep "\n" (
                   builtins.map (iconCfg: ''
-                    set_icon "${iconCfg.icon}" "${iconCfg.path}"
+                    set_icon "${iconCfg.icon}" "${iconCfg.path}" || true
                   '') cfg.icons
                 )}
 
