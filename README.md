@@ -1,6 +1,6 @@
 # nix-darwin-custom-icons
 
-Set custom icons for your applications! A module for [nix-darwin](https://daiderd.com/nix-darwin/)
+Set custom icons for your applications! A module for [nix-darwin](https://daiderd.com/nix-darwin/). Gives more verbose errors than original
 
 ## Usage
 
