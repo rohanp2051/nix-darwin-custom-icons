@@ -9,7 +9,7 @@ Add this repository to your flake's inputs:
 ```nix
 {
   inputs = {
-    darwin-custom-icons.url = "github:ryanccn/nix-darwin-custom-icons";
+    darwin-custom-icons.url = "github:rohanp2051/nix-darwin-custom-icons";
   };
 }
 ```
