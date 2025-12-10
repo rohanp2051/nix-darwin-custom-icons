@@ -37,6 +37,10 @@ And then in your system configuration:
         path = "/Applications/Notion.app";
         icon = ./icons/notion.icns;
       }
+      {
+        path = "${pkgs.vesktop}/Applications/Vesktop.app";
+        icon = ./icons/Discord.icns;
+      }
     ];
   };
 }
