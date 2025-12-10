@@ -13,45 +13,87 @@ in
   options.environment.customIcons = {
     enable = mkEnableOption "environment.customIcons";
     clearCacheOnActivation = mkEnableOption "environment.customIcons.clearCacheOnActivation";
-
     icons = mkOption {
       type = types.listOf (
         types.submodule {
           options = {
-            path = mkOption { type = types.path; };
+            path = mkOption { type = types.str; };
             icon = mkOption { type = types.path; };
           };
         }
       );
+      default = [ ];
+      description = "List of custom icon configurations";
     };
   };
 
   config = mkMerge [
     (mkIf cfg.enable {
       system.activationScripts.extraActivation.text = ''
-        echo -e "applying custom icons..."
+                echo "applying custom icons..."
 
-        ${
-          (builtins.concatStringsSep "\n\n" (
-            builtins.map (iconCfg: ''
-              osascript <<EOF >/dev/null
-                use framework "Cocoa"
+                set_icon() {
+                  local icon_path="$1"
+                  local dest_path="$2"
 
-                set iconPath to "${iconCfg.icon}"
-                set destPath to "${iconCfg.path}"
+                  # Check if destination exists
+                  if [ ! -e "$dest_path" ]; then
+                    echo "  ⚠ Skipping: $dest_path (not found)"
+                    return 1
+                  fi
 
-                set imageData to (current application's NSImage's alloc()'s initWithContentsOfFile:iconPath)
-                (current application's NSWorkspace's sharedWorkspace()'s setIcon:imageData forFile:destPath options:2)
-              EOF
-            '') cfg.icons
-          ))
-        }
+                  # Check if destination is writable
+                  if [ ! -w "$dest_path" ]; then
+                    echo "  ✗ Failed: $dest_path (permission denied - try running with sudo or check SIP)"
+                    return 1
+                  fi
 
-        ${lib.optionalString cfg.clearCacheOnActivation ''
-          sudo rm -rf /Library/Caches/com.apple.iconservices.store
-          sudo find /private/var/folders/ -name com.apple.dock.iconcache -or -name com.apple.iconservices -or -name com.apple.iconservicesagent -exec rm -rf {} \; || true
-          killall Dock
-        ''}'';
+                  # Attempt to set the icon
+                  local result
+                  result=$(osascript <<EOF 2>&1
+                    use framework "Cocoa"
+                    set iconPath to "$icon_path"
+                    set destPath to "$dest_path"
+                    set imageData to (current application's NSImage's alloc()'s initWithContentsOfFile:iconPath)
+                    if imageData is missing value then
+                      error "Failed to load icon image"
+                    end if
+                    set success to (current application's NSWorkspace's sharedWorkspace()'s setIcon:imageData forFile:destPath options:2)
+                    if success then
+                      return "ok"
+                    else
+                      error "NSWorkspace setIcon returned false"
+                    end if
+        EOF
+                  )
+                  local exit_code=$?
+
+                  if [ $exit_code -ne 0 ]; then
+                    echo "  ✗ Failed: $dest_path"
+                    echo "    Error: $result"
+                    return 1
+                  fi
+
+                  echo "  ✓ Set icon: $dest_path"
+                  return 0
+                }
+
+                ${builtins.concatStringsSep "\n" (
+                  builtins.map (iconCfg: ''
+                    set_icon "${iconCfg.icon}" "${iconCfg.path}"
+                  '') cfg.icons
+                )}
+
+                ${lib.optionalString cfg.clearCacheOnActivation ''
+                  echo "clearing icon cache..."
+                  sudo rm -rf /Library/Caches/com.apple.iconservices.store 2>/dev/null || true
+                  sudo find /private/var/folders/ \( -name com.apple.dock.iconcache -o -name com.apple.iconservices -o -name com.apple.iconservicesagent \) -exec rm -rf {} \; 2>/dev/null || true
+                  killall Dock 2>/dev/null || true
+                  echo "  ✓ Icon cache cleared"
+                ''}
+
+                echo "custom icons applied"
+      '';
     })
   ];
 }
