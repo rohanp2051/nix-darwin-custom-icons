@@ -1,6 +1,6 @@
 # nix-darwin-custom-icons
 
-Set custom icons for your applications! A module for [nix-darwin](https://daiderd.com/nix-darwin/). Gives more verbose errors than original
+Set custom icons for your applications! A module for [nix-darwin](https://daiderd.com/nix-darwin/). Gives more verbose errors than original & adds the option to termorarily strip com.apple.macl to give icon writing permissions. 
 
 ## Usage
 
@@ -40,6 +40,11 @@ And then in your system configuration:
       {
         path = "${pkgs.vesktop}/Applications/Vesktop.app";
         icon = ./icons/Discord.icns;
+      }
+      {
+        path = "/Applications/CrossOver.app";
+        icon = ./icons/CrossOver.icns;
+        stripMacl = true;
       }
     ];
   };
