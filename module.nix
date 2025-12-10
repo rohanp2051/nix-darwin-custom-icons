@@ -49,8 +49,8 @@ in
                   # Save and strip macl if requested
                   local macl_value=""
                   if [ "$strip_macl" = "true" ]; then
-                    if xattr -px com.apple.macl "$dest_path" >/dev/null 2>&1; then
-                      macl_value=$(xattr -px com.apple.macl "$dest_path" 2>/dev/null)
+                    if sudo xattr -px com.apple.macl "$dest_path" >/dev/null 2>&1; then
+                      macl_value=$(sudo xattr -px com.apple.macl "$dest_path" 2>/dev/null)
                       sudo xattr -dr com.apple.macl "$dest_path" 2>/dev/null
                     fi
                   fi
