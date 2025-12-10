@@ -19,6 +19,11 @@ in
           options = {
             path = mkOption { type = types.str; };
             icon = mkOption { type = types.path; };
+            stripMacl = mkOption {
+              type = types.bool;
+              default = false;
+              description = "Temporarily strip com.apple.macl to set icon, then restore it";
+            };
           };
         }
       );
@@ -34,10 +39,22 @@ in
                 set_icon() {
                   local icon_path="$1"
                   local dest_path="$2"
+                  local strip_macl="$3"
+
                   if [ ! -e "$dest_path" ]; then
                     echo "  ⚠ Skipping: $dest_path (not found)"
                     return 0
                   fi
+
+                  # Save and strip macl if requested
+                  local macl_value=""
+                  if [ "$strip_macl" = "true" ]; then
+                    if xattr -px com.apple.macl "$dest_path" >/dev/null 2>&1; then
+                      macl_value=$(xattr -px com.apple.macl "$dest_path" 2>/dev/null)
+                      sudo xattr -dr com.apple.macl "$dest_path" 2>/dev/null
+                    fi
+                  fi
+
                   local result
                   result=$(osascript <<EOF 2>&1
                     use framework "Cocoa"
@@ -56,18 +73,27 @@ in
         EOF
                   )
                   local exit_code=$?
+
+                  # Restore macl if we saved it
+                  if [ -n "$macl_value" ]; then
+                    sudo xattr -wx com.apple.macl "$macl_value" "$dest_path" 2>/dev/null
+                  fi
+
                   if [ $exit_code -ne 0 ]; then
                     echo "  ✗ Failed: $dest_path"
                     echo "    Error: $result"
                     failed_apps+=("$dest_path")
                     return 0
                   fi
+
                   echo "  ✓ Set icon: $dest_path"
                   return 0
                 }
                 ${builtins.concatStringsSep "\n" (
                   builtins.map (iconCfg: ''
-                    set_icon "${iconCfg.icon}" "${iconCfg.path}" || true
+                    set_icon "${iconCfg.icon}" "${iconCfg.path}" "${
+                      if iconCfg.stripMacl then "true" else "false"
+                    }" || true
                   '') cfg.icons
                 )}
                 ${lib.optionalString cfg.clearCacheOnActivation ''
@@ -79,13 +105,13 @@ in
                 ''}
                 if [ ''${#failed_apps[@]} -gt 0 ]; then
                   echo ""
-                  echo "⚠ The following apps require an overlay to change their icons:"
+                  echo "⚠ The following apps require an overlay or stripMacl = true:"
                   for app in "''${failed_apps[@]}"; do
                     echo "  - $app"
                   done
                   echo ""
-                  echo "These apps have com.apple.macl protection. Use a nixpkgs overlay to"
-                  echo "replace the icon at build time instead of runtime."
+                  echo "These apps have com.apple.macl protection. Either add 'stripMacl = true'"
+                  echo "to temporarily bypass it, or use a nixpkgs overlay to set the icon at build time."
                 fi
                 echo "custom icons applied"
       '';
